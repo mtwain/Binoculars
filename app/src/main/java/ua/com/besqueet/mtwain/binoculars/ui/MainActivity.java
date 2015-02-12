@@ -14,6 +14,7 @@ import ua.com.besqueet.mtwain.binoculars.R;
 import ua.com.besqueet.mtwain.binoculars.controllers.AuthController;
 import ua.com.besqueet.mtwain.binoculars.controllers.BusController;
 import ua.com.besqueet.mtwain.binoculars.controllers.ContextController;
+import ua.com.besqueet.mtwain.binoculars.ui.fragments.DialogListFragment;
 import ua.com.besqueet.mtwain.binoculars.ui.fragments.SignInFragment;
 
 
@@ -32,7 +33,7 @@ public class MainActivity extends Activity implements Constants,Credentials{
         setContentView(R.layout.activity_main);
 
         if (loadLoginInfo()){
-            //TODO: Cпроба входу -> у вікні з групами
+            showFragment(new DialogListFragment());
         }else{
             showFragment(new SignInFragment());
             AuthController.INSTANCE.createAppSession();
@@ -62,6 +63,13 @@ public class MainActivity extends Activity implements Constants,Credentials{
     public void showFragment(Fragment fragment){
         getFragmentManager().beginTransaction()
                 .replace(R.id.container,fragment)
+                .commit();
+    }
+
+    public void showFragmentAbove(Fragment fragment){
+        getFragmentManager().beginTransaction()
+                .replace(R.id.container,fragment)
+                .addToBackStack("")
                 .commit();
     }
 

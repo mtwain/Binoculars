@@ -12,12 +12,17 @@ import com.quickblox.core.QBEntityCallbackImpl;
 import com.quickblox.users.QBUsers;
 import com.quickblox.users.model.QBUser;
 
+import org.jivesoftware.smack.ConnectionListener;
+import org.jivesoftware.smack.SmackException;
+import org.jivesoftware.smack.XMPPConnection;
+
 import java.util.ArrayList;
 import java.util.List;
 
 import ua.com.besqueet.mtwain.binoculars.ErrorCodes;
 import ua.com.besqueet.mtwain.binoculars.events.auth.LoginFailEvent;
 import ua.com.besqueet.mtwain.binoculars.events.auth.LoginSuccessEvent;
+import ua.com.besqueet.mtwain.binoculars.events.auth.SignOutSuccessEvent;
 import ua.com.besqueet.mtwain.binoculars.events.auth.SignUpFailEvent;
 
 public enum AuthController implements ErrorCodes{
@@ -28,13 +33,21 @@ public enum AuthController implements ErrorCodes{
     private String login = "";
     private String password = "";
     private ArrayList<String>logins = new ArrayList<>();
+    private ConnectionListener connectionListener;
+
+
+
+
+
 
     public ArrayList<String> getLogins() {
         return logins;
     }
 
     public void addLoginToList(String login){
-        logins.add(login);
+        if(!logins.contains(login)) {
+            logins.add(login);
+        }
     }
 
     public String getPassword() {
@@ -76,6 +89,7 @@ public enum AuthController implements ErrorCodes{
     }
 
 
+
     private void showLogErrors(List<String> errors){
         for (int i=0; i<errors.size();i++){
             Log.d(L,i+". "+errors.get(i));
@@ -92,6 +106,7 @@ public enum AuthController implements ErrorCodes{
                 @Override
                 public void onSuccess() {
                     Log.d(L, "Login Success");
+                    setUpChat();
                     Handler handler = new Handler(Looper.getMainLooper());
                     handler.post(new Runnable() {
                         @Override
@@ -99,6 +114,7 @@ public enum AuthController implements ErrorCodes{
                             BusController.INSTANCE.getBus().post(new LoginSuccessEvent());
                         }
                     });
+                    ContextController.INSTANCE.getMainActivity().storeLoginInfo(getLogin(),getPassword());
                 }
 
                 @Override
@@ -107,6 +123,7 @@ public enum AuthController implements ErrorCodes{
                 }
             });
         }else {
+            setUpChat();
             Log.d(L, "Already Logged in");
         }
     }
@@ -139,4 +156,87 @@ public enum AuthController implements ErrorCodes{
             }
         });
     }
+
+    public void signOut(){
+
+        boolean isLoggedIn = chatService.isLoggedIn();
+
+        if(!isLoggedIn){
+            return;
+        }
+        chatService.logout(new QBEntityCallbackImpl() {
+            @Override
+            public void onSuccess() {
+                chatService.destroy();
+                Handler handler = new Handler(Looper.getMainLooper());
+                handler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        BusController.INSTANCE.getBus().post(new SignOutSuccessEvent());
+                    }
+                });
+                ContextController.INSTANCE.getMainActivity().storeLoginInfo("","");
+            }
+
+            @Override
+            public void onError(final List list) {
+                Log.d(L,"SignOut Error");
+            }
+        });
+    }
+
+    public void setUpChat(){
+        try {
+            chatService.startAutoSendPresence(60);
+        } catch (SmackException.NotLoggedInException e) {
+            e.printStackTrace();
+        }
+
+        connectionListener = new ConnectionListener() {
+            @Override
+            public void connected(XMPPConnection connection) {
+                Log.d(L,"Connected");
+            }
+
+            @Override
+            public void authenticated(XMPPConnection connection) {
+                Log.d(L,"Authenticated");
+            }
+
+            @Override
+            public void connectionClosed() {
+                Log.d(L,"Connection Closed");
+            }
+
+            @Override
+            public void connectionClosedOnError(Exception e) {
+                Log.d(L,"Connection Closed On Error");
+            }
+
+            @Override
+            public void reconnectingIn(int seconds) {
+                Log.d(L,"Reconnecting In");
+            }
+
+            @Override
+            public void reconnectionSuccessful() {
+                Log.d(L,"Reconnection Successful");
+            }
+
+            @Override
+            public void reconnectionFailed(Exception e) {
+                Log.d(L,"Reconnection Failed");
+            }
+        };
+
+        chatService.addConnectionListener(connectionListener);
+    }
+
+    public void stopAutoSendPresence(){
+        if(chatService!=null){
+            chatService.stopAutoSendPresence();
+            chatService.removeConnectionListener(connectionListener);
+        }
+    }
+
 }
